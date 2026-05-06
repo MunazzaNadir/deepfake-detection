@@ -9,7 +9,7 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
 from src.dataset import DeepfakeImageDataset, get_transforms
-from src.models import EfficientNetBaseline
+from src.models import EfficientNetBaseline, DualBranchSpatialFrequencyNet
 from src.evaluate import evaluate_model
 
 
@@ -70,6 +70,7 @@ def run_experiment(
     lr=1e-4,
     weight_decay=1e-4,
     seed=42,
+    model_type="baseline",
 ):
     set_seed(seed)
 
@@ -147,7 +148,12 @@ def run_experiment(
         pin_memory=True,
     )
 
-    model = EfficientNetBaseline().to(device)
+    if model_type == "baseline":
+        model = EfficientNetBaseline().to(device)
+    elif model_type == "dual":
+        model = DualBranchSpatialFrequencyNet().to(device)
+    else:
+        raise ValueError(f"Unknown model_type: {model_type}")
 
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -198,6 +204,7 @@ def run_experiment(
 
     output = {
         "experiment_name": experiment_name,
+        "model_type": model_type,
         "train_methods": train_methods,
         "val_methods": val_methods,
         "test_methods": test_methods,
