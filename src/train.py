@@ -1,6 +1,7 @@
 
 import json
 import random
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -71,6 +72,7 @@ def run_experiment(
     weight_decay=1e-4,
     seed=42,
     model_type="baseline",
+    drive_checkpoint_dir=None,
 ):
     set_seed(seed)
 
@@ -196,6 +198,11 @@ def run_experiment(
             best_val_auc = val_metrics["auc"]
             torch.save(model.state_dict(), best_checkpoint_path)
             print("Saved best checkpoint:", best_checkpoint_path)
+            if drive_checkpoint_dir is not None:
+                drive_path = Path(drive_checkpoint_dir)
+                drive_path.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(best_checkpoint_path, drive_path / best_checkpoint_path.name)
+                print("Copied checkpoint to Drive:", drive_path / best_checkpoint_path.name)
 
     print("\nLoading best checkpoint...")
     model.load_state_dict(torch.load(best_checkpoint_path, map_location=device))

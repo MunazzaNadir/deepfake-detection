@@ -41,6 +41,7 @@ def main():
                 max_val_samples=1500,
                 max_test_samples=1500,
                 model_type=model_type,
+                drive_checkpoint_dir="/content/drive/MyDrive/deepfake-detection/vriddhi_results/checkpoints",
             )
 
             for src, dst_dir in [
