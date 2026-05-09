@@ -21,33 +21,27 @@ class JPEGCompression:
         return Image.open(buffer).convert("RGB")
 
 
-def get_transforms(img_size=224, train=True):
-    if train:
+def get_transforms(img_size=224, train=True, augment=False):
+    if train and augment:
+        # Strong augmentations — opt-in only, won't affect teammates
         return transforms.Compose([
-            # RandomResizedCrop instead of plain Resize:
-            # forces robustness to scale and position changes
             transforms.RandomResizedCrop(
                 size=img_size,
                 scale=(0.8, 1.0),
                 ratio=(0.9, 1.1),
             ),
             transforms.RandomHorizontalFlip(p=0.5),
-            # Stronger ColorJitter to reduce reliance on color/lighting cues
             transforms.ColorJitter(
                 brightness=0.3,
                 contrast=0.3,
                 saturation=0.2,
                 hue=0.05,
             ),
-            # GaussianBlur simulates soft/blurry deepfake artifacts
             transforms.RandomApply(
                 [transforms.GaussianBlur(kernel_size=5, sigma=(0.1, 2.0))],
                 p=0.3,
             ),
-            # RandomGrayscale reduces over-reliance on color cues
             transforms.RandomGrayscale(p=0.05),
-            # JPEG compression simulation — important since deepfakes are often
-            # distributed as compressed images
             transforms.RandomApply(
                 [JPEGCompression(quality_low=40, quality_high=90)],
                 p=0.3,
@@ -60,7 +54,26 @@ def get_transforms(img_size=224, train=True):
             transforms.RandomErasing(p=0.25),
         ])
 
-    # Val/test transforms stay clean — no augmentation
+    if train:
+        # Original basic transforms — default, used by teammates
+        return transforms.Compose([
+            transforms.Resize((img_size, img_size)),
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.ColorJitter(
+                brightness=0.1,
+                contrast=0.1,
+                saturation=0.1,
+                hue=0.02,
+            ),
+            transforms.ToTensor(),
+            transforms.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225],
+            ),
+            transforms.RandomErasing(p=0.25),
+        ])
+
+    # Val/test — always clean, no augmentation
     return transforms.Compose([
         transforms.Resize((img_size, img_size)),
         transforms.ToTensor(),
