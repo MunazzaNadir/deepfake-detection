@@ -8,7 +8,6 @@ from torchvision import transforms
 
 
 class JPEGCompression:
-    """Simulate JPEG compression artifacts by re-encoding at a random quality."""
     def __init__(self, quality_low=40, quality_high=90):
         self.quality_low = quality_low
         self.quality_high = quality_high
@@ -23,78 +22,38 @@ class JPEGCompression:
 
 def get_transforms(img_size=224, train=True, augment=False):
     if train and augment:
-        # Strong augmentations — opt-in only, won't affect teammates
         return transforms.Compose([
-            transforms.RandomResizedCrop(
-                size=img_size,
-                scale=(0.8, 1.0),
-                ratio=(0.9, 1.1),
-            ),
+            transforms.RandomResizedCrop(size=img_size, scale=(0.8, 1.0), ratio=(0.9, 1.1)),
             transforms.RandomHorizontalFlip(p=0.5),
-            transforms.ColorJitter(
-                brightness=0.3,
-                contrast=0.3,
-                saturation=0.2,
-                hue=0.05,
-            ),
-            transforms.RandomApply(
-                [transforms.GaussianBlur(kernel_size=5, sigma=(0.1, 2.0))],
-                p=0.3,
-            ),
+            transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.2, hue=0.05),
+            transforms.RandomApply([transforms.GaussianBlur(kernel_size=5, sigma=(0.1, 2.0))], p=0.3),
             transforms.RandomGrayscale(p=0.05),
-            transforms.RandomApply(
-                [JPEGCompression(quality_low=40, quality_high=90)],
-                p=0.3,
-            ),
+            transforms.RandomApply([JPEGCompression(quality_low=40, quality_high=90)], p=0.3),
             transforms.ToTensor(),
-            transforms.Normalize(
-                mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225],
-            ),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             transforms.RandomErasing(p=0.25),
         ])
 
     if train:
-        # Original basic transforms — default, used by teammates
         return transforms.Compose([
             transforms.Resize((img_size, img_size)),
             transforms.RandomHorizontalFlip(p=0.5),
-            transforms.ColorJitter(
-                brightness=0.1,
-                contrast=0.1,
-                saturation=0.1,
-                hue=0.02,
-            ),
+            transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.02),
             transforms.ToTensor(),
-            transforms.Normalize(
-                mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225],
-            ),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             transforms.RandomErasing(p=0.25),
         ])
 
-    # Val/test — always clean, no augmentation
     return transforms.Compose([
         transforms.Resize((img_size, img_size)),
         transforms.ToTensor(),
-        transforms.Normalize(
-            mean=[0.485, 0.456, 0.406],
-            std=[0.229, 0.224, 0.225],
-        ),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
 
 
 class DeepfakeImageDataset(Dataset):
-    def __init__(
-        self,
-        csv_path,
-        split,
-        methods=None,
-        transform=None,
-        max_samples=None,
-    ):
+    def __init__(self, csv_path, split, methods=None, transform=None, max_samples=None):
         self.df = pd.read_csv(csv_path)
-
         self.df = self.df[self.df["split"] == split].copy()
 
         if methods is not None:
@@ -102,10 +61,7 @@ class DeepfakeImageDataset(Dataset):
             self.df = self.df[self.df["method"].isin(keep_methods)].copy()
 
         if max_samples is not None:
-            self.df = self.df.sample(
-                n=min(max_samples, len(self.df)),
-                random_state=42,
-            ).reset_index(drop=True)
+            self.df = self.df.sample(n=min(max_samples, len(self.df)), random_state=42).reset_index(drop=True)
         else:
             self.df = self.df.reset_index(drop=True)
 
@@ -116,17 +72,9 @@ class DeepfakeImageDataset(Dataset):
 
     def __getitem__(self, idx):
         row = self.df.iloc[idx]
-
         image = Image.open(row["path"]).convert("RGB")
         label = int(row["label"])
         method = row["method"]
-
         if self.transform:
             image = self.transform(image)
-
-        return {
-            "image": image,
-            "label": label,
-            "method": method,
-            "path": row["path"],
-        }
+        return {"image": image, "label": label, "method": method, "path": row["path"]}
