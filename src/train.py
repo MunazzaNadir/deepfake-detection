@@ -1,4 +1,3 @@
-
 import json
 import random
 from pathlib import Path
@@ -11,6 +10,7 @@ from torch.utils.data import DataLoader, WeightedRandomSampler
 from src.dataset import DeepfakeImageDataset, get_transforms
 from src.models import EfficientNetBaseline, DualBranchSpatialFrequencyNet
 from src.evaluate import evaluate_model
+from src.losses import FocalLoss  # added
 
 
 METHODS = ["Deepfakes", "Face2Face", "FaceSwap", "NeuralTextures"]
@@ -71,6 +71,9 @@ def run_experiment(
     weight_decay=1e-4,
     seed=42,
     model_type="baseline",
+    loss_type="bce",          # added: "bce" or "focal"
+    focal_alpha=0.25,         # added: only used when loss_type="focal"
+    focal_gamma=2.0,          # added: only used when loss_type="focal"
 ):
     set_seed(seed)
 
@@ -161,7 +164,13 @@ def run_experiment(
         weight_decay=weight_decay,
     )
 
-    criterion = torch.nn.BCEWithLogitsLoss()
+    # added: loss selection
+    if loss_type == "focal":
+        criterion = FocalLoss(alpha=focal_alpha, gamma=focal_gamma)
+        print(f"Using FocalLoss (alpha={focal_alpha}, gamma={focal_gamma})")
+    else:
+        criterion = torch.nn.BCEWithLogitsLoss()
+        print("Using BCEWithLogitsLoss")
 
     best_val_auc = -1.0
     best_checkpoint_path = checkpoint_dir / f"{experiment_name}.pt"
@@ -205,6 +214,7 @@ def run_experiment(
     output = {
         "experiment_name": experiment_name,
         "model_type": model_type,
+        "loss_type": loss_type,   # added
         "train_methods": train_methods,
         "val_methods": val_methods,
         "test_methods": test_methods,

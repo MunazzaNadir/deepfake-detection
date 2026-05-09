@@ -1,3 +1,5 @@
+import io
+import random
 
 import pandas as pd
 from PIL import Image
@@ -5,16 +7,50 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 
 
+class JPEGCompression:
+    """Simulate JPEG compression artifacts by re-encoding at a random quality."""
+    def __init__(self, quality_low=40, quality_high=90):
+        self.quality_low = quality_low
+        self.quality_high = quality_high
+
+    def __call__(self, img):
+        quality = random.randint(self.quality_low, self.quality_high)
+        buffer = io.BytesIO()
+        img.save(buffer, format="JPEG", quality=quality)
+        buffer.seek(0)
+        return Image.open(buffer).convert("RGB")
+
+
 def get_transforms(img_size=224, train=True):
     if train:
         return transforms.Compose([
-            transforms.Resize((img_size, img_size)),
+            # RandomResizedCrop instead of plain Resize:
+            # forces robustness to scale and position changes
+            transforms.RandomResizedCrop(
+                size=img_size,
+                scale=(0.8, 1.0),
+                ratio=(0.9, 1.1),
+            ),
             transforms.RandomHorizontalFlip(p=0.5),
+            # Stronger ColorJitter to reduce reliance on color/lighting cues
             transforms.ColorJitter(
-                brightness=0.1,
-                contrast=0.1,
-                saturation=0.1,
-                hue=0.02,
+                brightness=0.3,
+                contrast=0.3,
+                saturation=0.2,
+                hue=0.05,
+            ),
+            # GaussianBlur simulates soft/blurry deepfake artifacts
+            transforms.RandomApply(
+                [transforms.GaussianBlur(kernel_size=5, sigma=(0.1, 2.0))],
+                p=0.3,
+            ),
+            # RandomGrayscale reduces over-reliance on color cues
+            transforms.RandomGrayscale(p=0.05),
+            # JPEG compression simulation — important since deepfakes are often
+            # distributed as compressed images
+            transforms.RandomApply(
+                [JPEGCompression(quality_low=40, quality_high=90)],
+                p=0.3,
             ),
             transforms.ToTensor(),
             transforms.Normalize(
@@ -24,6 +60,7 @@ def get_transforms(img_size=224, train=True):
             transforms.RandomErasing(p=0.25),
         ])
 
+    # Val/test transforms stay clean — no augmentation
     return transforms.Compose([
         transforms.Resize((img_size, img_size)),
         transforms.ToTensor(),
