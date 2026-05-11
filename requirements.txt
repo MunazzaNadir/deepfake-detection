@@ -8,3 +8,5 @@ matplotlib
 tqdm
 Pillow
 opencv-python
+streamlit
+plotly
